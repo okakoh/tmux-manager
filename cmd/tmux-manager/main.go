@@ -13,6 +13,8 @@ import (
 	"github.com/okakoh/tmux-manager/internal/tui"
 )
 
+var version = "0.1.1"
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -22,7 +24,12 @@ func main() {
 
 func run() error {
 	configPath := flag.String("config", "", "config file path")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Fprintf(os.Stdout, "tmux-manager %s\n", version)
+		return nil
+	}
 
 	store, err := storage.New(*configPath)
 	if err != nil {

@@ -3,6 +3,11 @@
 `tmux-manager` is a Go TUI for starting, re-entering, and safely rebuilding
 project-specific tmux workspaces.
 
+This project started as a personal tool and is published while it is still in
+active development. Expect rough edges, small breaking changes, and documentation
+that may lag behind the implementation. Feedback from similar day-to-day
+development setups is welcome.
+
 It is designed for development setups where one repository usually needs
 several repeatable tmux windows: an editor, a shell, a test runner, logs, or
 AI coding tools. Instead of keeping this layout in shell history or tmux muscle
@@ -10,6 +15,7 @@ memory, `tmux-manager` stores it as a small YAML config and gives you a focused
 terminal UI for launching and attaching to those workspaces.
 
 Japanese issues and discussions are welcome. / 日本語での Issue や相談も歓迎です。
+See [README.ja.md](README.ja.md) for the Japanese README.
 
 ## Design Philosophy
 
@@ -22,6 +28,72 @@ Japanese issues and discussions are welcome. / 日本語での Issue や相談�
   does not write `.tmux.conf`.
 - **Single binary**: the app is distributed as a small Go command with no daemon
   or background service.
+
+## Use Case: Next.js Project Workspaces
+
+When you work across several projects, even a single Next.js app can require a
+small stack of terminal processes before real work starts:
+
+- a development server such as `pnpm dev` or `next dev`
+- Codex, Claude Code, Hermes Agent, or another AI coding agent
+- a normal shell for Git, package scripts, and one-off commands
+- a file manager such as `yazi`, including when you inspect files from a phone
+  or a remote terminal
+- logs, tests, database consoles, or other project-specific tools
+
+The value of `tmux-manager` is that this setup becomes a project entry instead
+of a repeated manual ritual. You choose the project in the TUI, launch or attach
+to its tmux session, and get the same named windows every time. If the session
+already exists, the project can attach, prompt, or rebuild based on its policy.
+If a process exits, the window can stay open in a shell so the failure is still
+visible.
+
+For a Next.js app, a config might look like this:
+
+```yaml
+tools:
+  server:
+    window: server
+    command: pnpm dev
+    after_exit: shell
+  codex:
+    window: codex
+    command: codex
+    after_exit: shell
+  claude:
+    window: claude
+    command: claude
+    after_exit: shell
+  hermes:
+    window: hermes
+    command: hermes
+    after_exit: shell
+  files:
+    window: files
+    command: yazi
+    after_exit: shell
+
+projects:
+  - name: sample-next-app
+    path: ~/src/sample-next-app
+    session: sample-next-app
+    default_window: server
+    window_selection: prompt
+    on_existing: prompt
+    confirm_kill: true
+    failure_policy: continue
+    tools:
+      - server
+      - codex
+      - claude:
+          enabled: false
+      - hermes:
+          enabled: false
+      - files
+```
+
+The same reusable tools can then be shared by other projects while each project
+keeps its own session name, default window, enabled tools, and safety policy.
 
 ## Terms
 
@@ -66,6 +138,12 @@ git clone https://github.com/okakoh/tmux-manager.git
 cd tmux-manager
 go build -o ./tmux-manager ./cmd/tmux-manager
 ./tmux-manager
+```
+
+Check the installed version with:
+
+```sh
+tmux-manager -version
 ```
 
 ### Homebrew
