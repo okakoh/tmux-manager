@@ -1,0 +1,45 @@
+tools:
+  editor:
+    window: editor
+    command: nvim
+    after_exit: shell
+    default_for_new_projects: true
+  shell:
+    window: shell
+    command: zsh
+    after_exit: shell
+    default_for_new_projects: true
+  tests:
+    window: tests
+    command: go test ./...
+    after_exit: shell
+  logs:
+    window: logs
+    command: tail -f ./tmp/app.log
+    after_exit: shell
+projects:
+  - name: sample-api
+    path: ~/src/sample-api
+    session: sample-api
+    default_window: editor
+    window_selection: configured
+    on_existing: attach
+    confirm_kill: true
+    failure_policy: stop
+    tools:
+      - editor
+      - shell
+      - tests
+  - name: sample-web
+    path: ~/src/sample-web
+    session: sample-web
+    default_window: shell
+    window_selection: prompt
+    on_existing: prompt
+    confirm_kill: true
+    failure_policy: continue
+    tools:
+      - editor
+      - shell
+      - logs:
+          enabled: false

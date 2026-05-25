@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible problem.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include a minimal config snippet if it is relevant.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: macOS 15.0, Ubuntu 24.04, etc.
+  - type: input
+    id: tmux
+    attributes:
+      label: tmux version
+      placeholder: tmux 3.5a
+  - type: input
+    id: version
+    attributes:
+      label: tmux-manager version or commit
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Japanese is welcome. Please remove private paths, tokens, and internal details before posting.
