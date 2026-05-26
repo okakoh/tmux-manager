@@ -1,3 +1,6 @@
+# Optional: use a specific tmux client instead of the first `tmux` on PATH.
+# tmux_binary: /opt/homebrew/Cellar/tmux/3.5a/bin/tmux
+
 tools:
   editor:
     window: editor

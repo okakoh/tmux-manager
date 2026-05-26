@@ -35,8 +35,9 @@ const (
 )
 
 type Config struct {
-	Tools    map[string]Tool `yaml:"tools"`
-	Projects []Project       `yaml:"projects"`
+	TmuxBinary string          `yaml:"tmux_binary,omitempty"`
+	Tools      map[string]Tool `yaml:"tools"`
+	Projects   []Project       `yaml:"projects"`
 }
 
 type Tool struct {

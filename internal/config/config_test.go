@@ -37,6 +37,14 @@ projects:
 	if err != nil {
 		t.Fatalf("LoadYAML() error = %v", err)
 	}
+	cfg.TmuxBinary = "/opt/homebrew/Cellar/tmux/3.5a/bin/tmux"
+	data, err := MarshalYAML(cfg)
+	if err != nil {
+		t.Fatalf("MarshalYAML() error = %v", err)
+	}
+	if !strings.Contains(string(data), "tmux_binary: /opt/homebrew/Cellar/tmux/3.5a/bin/tmux") {
+		t.Fatalf("marshaled config missing tmux_binary:\n%s", data)
+	}
 	resolved, err := Resolve(cfg, ResolveOptions{RequireExistingProjectPaths: true})
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)

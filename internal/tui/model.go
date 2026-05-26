@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -90,7 +91,8 @@ type attachReadyMsg struct {
 }
 
 type attachFinishedMsg struct {
-	err error
+	args []string
+	err  error
 }
 
 type keyBindingsMsg struct {
@@ -175,13 +177,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if binary == "" {
 			binary = tmux.DefaultBinary
 		}
-		cmd := exec.Command(binary, tmux.AttachSessionArgs(msg.step.TargetSession)...) // #nosec G204 -- binary is the startup-resolved tmux path.
+		args := m.enterSessionArgs(msg.step.TargetSession)
+		cmd := exec.Command(binary, args...) // #nosec G204 -- binary is the startup-resolved tmux path.
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 		return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
-			return attachFinishedMsg{err: err}
+			return attachFinishedMsg{args: append([]string{binary}, args...), err: err}
 		})
 	case attachFinishedMsg:
 		if msg.err != nil {
-			m.err = msg.err
+			m.err = m.attachFailureError(msg)
 			m.screen = ScreenError
 			return m, nil
 		}
@@ -200,6 +206,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+func (m Model) enterSessionArgs(session string) []string {
+	return tmux.EnterSessionArgs(session, os.Getenv("TMUX") != "")
+}
+
+func (m Model) attachFailureError(msg attachFinishedMsg) error {
+	err := &tmux.Error{Kind: tmux.ErrorCommandFailed, Args: msg.args, Err: msg.err}
+	diagnostic, diagnosticErr := tmux.NewClient(m.tmuxBinary).VersionDiagnostic(context.Background())
+	if diagnosticErr != nil || !diagnostic.Mismatch() {
+		return err
+	}
+	return fmt.Errorf("%w\n\n%s", err, diagnostic.Message())
 }
 
 func (m Model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

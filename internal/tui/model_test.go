@@ -144,6 +144,33 @@ func TestExecutePlanSplitsInteractiveAttach(t *testing.T) {
 	}
 }
 
+func TestEnterSessionArgsSwitchesClientInsideTmux(t *testing.T) {
+	t.Setenv("TMUX", "/private/tmp/tmux-501/default,123,0")
+	m := testModel(120, tmux.State{})
+	got := m.enterSessionArgs("sample-api")
+	want := []string{"-u", "switch-client", "-t", "sample-api"}
+	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("enterSessionArgs() = %#v, want %#v", got, want)
+	}
+}
+
+func TestAttachFinishedErrorIncludesTmuxCommand(t *testing.T) {
+	m := testModel(120, tmux.State{})
+	next, _ := m.Update(attachFinishedMsg{
+		args: []string{"tmux", "-u", "attach-session", "-d", "-t", "sample-api"},
+		err:  errors.New("exit status 1"),
+	})
+	got := next.(Model)
+	if got.screen != ScreenError {
+		t.Fatalf("screen = %q, want error", got.screen)
+	}
+	for _, want := range []string{"tmux command-failed", "attach-session", "sample-api", "exit status 1"} {
+		if got.err == nil || !strings.Contains(got.err.Error(), want) {
+			t.Fatalf("err = %v, want %q", got.err, want)
+		}
+	}
+}
+
 func TestSettingsEditorCanEditProjectField(t *testing.T) {
 	raw, resolved := testConfig(t, t.TempDir())
 	m := NewModelWithServices(raw, resolved, tmux.State{}, &fakeExec{}, &fakeStore{cfg: raw}, nil)

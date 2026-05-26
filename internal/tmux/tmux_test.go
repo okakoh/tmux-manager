@@ -34,6 +34,21 @@ func TestCommandBuilders(t *testing.T) {
 			want: []string{"-u", "attach-session", "-d", "-t", "sample-api"},
 		},
 		{
+			name: "switch client",
+			got:  SwitchClientArgs("sample-api"),
+			want: []string{"-u", "switch-client", "-t", "sample-api"},
+		},
+		{
+			name: "enter outside tmux attaches",
+			got:  EnterSessionArgs("sample-api", false),
+			want: []string{"-u", "attach-session", "-d", "-t", "sample-api"},
+		},
+		{
+			name: "enter inside tmux switches client",
+			got:  EnterSessionArgs("sample-api", true),
+			want: []string{"-u", "switch-client", "-t", "sample-api"},
+		},
+		{
 			name: "kill",
 			got:  KillSessionArgs("sample-api"),
 			want: []string{"-u", "kill-session", "-t", "sample-api"},
@@ -88,6 +103,28 @@ func TestErrorIncludesCommandAndOutput(t *testing.T) {
 		if !strings.Contains(err, want) {
 			t.Fatalf("Error() = %q, want %q", err, want)
 		}
+	}
+}
+
+func TestVersionDiagnosticMismatchMessage(t *testing.T) {
+	diag := VersionDiagnostic{
+		Binary:        "/opt/homebrew/bin/tmux",
+		ClientVersion: "3.6b",
+		ServerVersion: "3.5a",
+	}
+	if !diag.Mismatch() {
+		t.Fatal("Mismatch() = false, want true")
+	}
+	for _, want := range []string{"does not require a specific tmux version", "/opt/homebrew/bin/tmux", "3.6b", "3.5a"} {
+		if !strings.Contains(diag.Message(), want) {
+			t.Fatalf("Message() missing %q:\n%s", want, diag.Message())
+		}
+	}
+}
+
+func TestParseClientVersion(t *testing.T) {
+	if got := ParseClientVersion("tmux 3.6b\n"); got != "3.6b" {
+		t.Fatalf("ParseClientVersion() = %q, want 3.6b", got)
 	}
 }
 

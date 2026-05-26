@@ -111,11 +111,14 @@ keeps its own session name, default window, enabled tools, and safety policy.
 
 ## Requirements
 
-- Go 1.26.3 or a newer compatible Go toolchain
+- Go 1.26.3 or a newer compatible Go toolchain when building from source
 - `tmux` on `PATH`
 - a POSIX-style shell from `$SHELL`, or `sh` on `PATH`
 
 The command wrapper runs tool commands through the resolved shell with `-lc`.
+`tmux-manager` does not install, bundle, or require a specific `tmux` version.
+It uses the `tmux` binary found on `PATH`, unless `tmux_binary` is set in the
+config file.
 
 ## Installation
 
@@ -154,6 +157,12 @@ tmux-manager -version
 brew install okakoh/tap/tmux-manager
 ```
 
+The Homebrew formula intentionally does not depend on Homebrew's `tmux`
+formula. Many users already run a tmux server, and automatically upgrading the
+`tmux` client during `tmux-manager` installation can leave an existing server on
+an older version. If you install or upgrade `tmux` separately, restart your tmux
+server or configure `tmux_binary` to point at the tmux client that matches it.
+
 Upgrade with:
 
 ```sh
@@ -176,6 +185,15 @@ If `XDG_CONFIG_HOME` is not set, it reads:
 
 If the config file does not exist, the TUI starts with an empty project list.
 Open settings with `s`, add projects/tools, and save with `Ctrl+S`.
+
+To use a specific tmux binary instead of the first `tmux` on `PATH`, add:
+
+```yaml
+tmux_binary: /opt/homebrew/Cellar/tmux/3.5a/bin/tmux
+```
+
+This is useful when you intentionally keep a running tmux server on a specific
+version. `tmux-manager` will not kill or restart that server automatically.
 
 Treat config files as trusted input. Tool commands are executable shell commands,
 so do not run configs copied from untrusted sources without reviewing them.

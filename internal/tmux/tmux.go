@@ -79,6 +79,12 @@ type KeyBinding struct {
 	Command string
 }
 
+type VersionDiagnostic struct {
+	Binary        string
+	ClientVersion string
+	ServerVersion string
+}
+
 type Client struct {
 	Binary string
 }
@@ -191,25 +197,78 @@ func (c Client) ListKeys(ctx context.Context) ([]KeyBinding, error) {
 	return ParseKeyBindings(output), nil
 }
 
+func (c Client) VersionDiagnostic(ctx context.Context) (VersionDiagnostic, error) {
+	binary := c.Binary
+	if binary == "" {
+		binary = DefaultBinary
+	}
+	resolved, err := ResolveBinary(binary)
+	if err != nil {
+		return VersionDiagnostic{}, err
+	}
+	clientOutput, err := runCommand(ctx, resolved, VersionArgs())
+	if err != nil {
+		return VersionDiagnostic{}, err
+	}
+	serverOutput, err := runCommand(ctx, resolved, ServerVersionArgs())
+	if err != nil {
+		return VersionDiagnostic{}, err
+	}
+	return VersionDiagnostic{
+		Binary:        resolved,
+		ClientVersion: ParseClientVersion(clientOutput),
+		ServerVersion: strings.TrimSpace(serverOutput),
+	}, nil
+}
+
+func (d VersionDiagnostic) Mismatch() bool {
+	return d.ClientVersion != "" && d.ServerVersion != "" && d.ClientVersion != d.ServerVersion
+}
+
+func (d VersionDiagnostic) Message() string {
+	return fmt.Sprintf(`tmux-manager does not require a specific tmux version.
+However, it is currently using a tmux client that differs from the running tmux server:
+
+  tmux binary: %s
+  tmux client version: %s
+  tmux server version: %s
+
+tmux attach can fail when the selected client and the running server for the same socket differ.
+Use a tmux binary matching the server, or restart the tmux server after intentionally upgrading tmux.`, d.Binary, d.ClientVersion, d.ServerVersion)
+}
+
 func (c Client) run(ctx context.Context, args []string) (string, error) {
 	binary := c.Binary
 	if binary == "" {
 		binary = DefaultBinary
 	}
-	if _, err := exec.LookPath(binary); err != nil {
-		return "", &Error{Kind: ErrorMissingExecutable, Args: append([]string{binary}, args...), Err: err}
+	resolved, err := ResolveBinary(binary)
+	if err != nil {
+		return "", err
 	}
+	return runCommand(ctx, resolved, args)
+}
+
+func runCommand(ctx context.Context, binary string, args []string) (string, error) {
 	cmd := exec.CommandContext(ctx, binary, args...) // #nosec G204 -- binary is resolved during startup and args are fixed tmux argv.
 	output, err := cmd.CombinedOutput()
-	if err != nil {
-		kind := ErrorCommandFailed
-		text := string(output)
-		if strings.Contains(strings.ToLower(text), "can't find session") {
-			kind = ErrorMissingSession
-		}
-		return text, &Error{Kind: kind, Args: append([]string{binary}, args...), Output: text, Err: err}
+	if err == nil {
+		return string(output), nil
 	}
-	return string(output), nil
+	kind := ErrorCommandFailed
+	text := string(output)
+	if strings.Contains(strings.ToLower(text), "can't find session") {
+		kind = ErrorMissingSession
+	}
+	return text, &Error{Kind: kind, Args: append([]string{binary}, args...), Output: text, Err: err}
+}
+
+func VersionArgs() []string {
+	return []string{"-V"}
+}
+
+func ServerVersionArgs() []string {
+	return []string{"-u", "display-message", "-p", "#{version}"}
 }
 
 func HasSessionArgs(session string) []string {
@@ -240,6 +299,17 @@ func AttachSessionArgs(session string) []string {
 	return []string{"-u", "attach-session", "-d", "-t", session}
 }
 
+func SwitchClientArgs(session string) []string {
+	return []string{"-u", "switch-client", "-t", session}
+}
+
+func EnterSessionArgs(session string, insideTmux bool) []string {
+	if insideTmux {
+		return SwitchClientArgs(session)
+	}
+	return AttachSessionArgs(session)
+}
+
 func KillSessionArgs(session string) []string {
 	return []string{"-u", "kill-session", "-t", session}
 }
@@ -266,6 +336,12 @@ func ParseSessions(output string) ([]Session, error) {
 		sessions = append(sessions, Session{Name: fields[0], WindowCount: count})
 	}
 	return sessions, nil
+}
+
+func ParseClientVersion(output string) string {
+	version := strings.TrimSpace(output)
+	version = strings.TrimPrefix(version, "tmux ")
+	return strings.TrimSpace(version)
 }
 
 func ParseWindows(output string) ([]Window, error) {

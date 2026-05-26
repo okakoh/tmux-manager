@@ -87,11 +87,14 @@ projects:
 
 ## 必要なもの
 
-- Go 1.26.3 以上の互換ツールチェーン
+- ソースからビルドする場合は Go 1.26.3 以上の互換ツールチェーン
 - `PATH` 上の `tmux`
 - `$SHELL` または `PATH` 上の `sh` で解決できる POSIX 系シェル
 
 ツールコマンドは、解決されたシェルの `-lc` 経由で実行されます。
+`tmux-manager` は特定の `tmux` バージョンをインストール、同梱、要求しません。
+設定ファイルで `tmux_binary` を指定しない限り、`PATH` 上で最初に見つかる
+`tmux` を使います。
 
 ## インストール
 
@@ -130,6 +133,13 @@ tmux-manager -version
 brew install okakoh/tap/tmux-manager
 ```
 
+Homebrew formula は、意図的に Homebrew の `tmux` formula へ依存しません。
+tmux ユーザーはすでに tmux server を起動していることが多く、`tmux-manager`
+のインストール時に tmux client だけが自動更新されると、既存 server と
+バージョンがずれる可能性があるためです。tmux を別途インストールまたは
+更新した場合は、tmux server を再起動するか、その server と合う tmux client
+を `tmux_binary` で指定してください。
+
 更新:
 
 ```sh
@@ -151,6 +161,16 @@ $XDG_CONFIG_HOME/tmux-manager/config.yaml
 ```
 
 設定ファイルがない場合、TUI は空のプロジェクト一覧で起動します。`s` で設定画面を開き、プロジェクトやツールを追加して `Ctrl+S` で保存できます。
+
+`PATH` 上で最初に見つかる `tmux` ではなく、特定の tmux バイナリを使う場合:
+
+```yaml
+tmux_binary: /opt/homebrew/Cellar/tmux/3.5a/bin/tmux
+```
+
+これは、起動中の tmux server を意図的に特定バージョンで維持している場合に
+使えます。`tmux-manager` がその server を自動で終了または再起動することは
+ありません。
 
 設定ファイルは信頼済み入力として扱ってください。ツールの `command` は
 実行可能なシェルコマンドなので、信頼できない場所からコピーした設定は

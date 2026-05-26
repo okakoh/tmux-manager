@@ -13,7 +13,7 @@ import (
 	"github.com/okakoh/tmux-manager/internal/tui"
 )
 
-var version = "0.1.1"
+var version = "0.1.2"
 
 func main() {
 	if err := run(); err != nil {
@@ -35,10 +35,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	tmuxBinary, err := tmux.ResolveBinary("")
-	if err != nil {
-		return err
-	}
 	shell, err := config.ResolveShellPath()
 	if err != nil {
 		return err
@@ -50,6 +46,10 @@ func run() error {
 		} else {
 			return err
 		}
+	}
+	tmuxBinary, err := tmux.ResolveBinary(raw.TmuxBinary)
+	if err != nil {
+		return err
 	}
 	resolved, err := config.Resolve(raw, config.ResolveOptions{Shell: shell})
 	if err != nil {
