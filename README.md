@@ -150,7 +150,15 @@ tmux-manager -version
 
 ### Homebrew
 
-Homebrew packaging is planned, but not available yet.
+```sh
+brew install okakoh/tap/tmux-manager
+```
+
+Upgrade with:
+
+```sh
+brew upgrade tmux-manager
+```
 
 ## Configuration
 

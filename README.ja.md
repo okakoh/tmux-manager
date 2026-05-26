@@ -126,7 +126,15 @@ tmux-manager -version
 
 ### Homebrew
 
-Homebrew 対応は予定していますが、まだ利用できません。
+```sh
+brew install okakoh/tap/tmux-manager
+```
+
+更新:
+
+```sh
+brew upgrade tmux-manager
+```
 
 ## 設定ファイル
 
