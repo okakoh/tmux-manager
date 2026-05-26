@@ -379,7 +379,7 @@ func (m *Model) addTool() {
 		m.staged.Tools = map[string]config.Tool{}
 	}
 	name := uniqueToolName(m.staged.Tools, "new-tool")
-	m.staged.Tools[name] = config.Tool{Window: name, Command: "zsh", AfterExit: config.AfterExitShell}
+	m.staged.Tools[name] = config.Tool{Window: name, Command: config.DefaultShell, AfterExit: config.AfterExitShell}
 	m.settingsTool = indexOf(sortedToolNames(m.staged.Tools), name)
 	m.settingsCursor = 0
 	m.settingsMessage = "tool added"
@@ -499,7 +499,7 @@ func (m Model) saveSettings() (tea.Model, tea.Cmd) {
 		m.settingsMessage = "no config store is available"
 		return m, nil
 	}
-	backup, err := m.store.Save(m.staged, config.ResolveOptions{RequireExistingProjectPaths: true})
+	backup, err := m.store.Save(m.staged, config.ResolveOptions{RequireExistingProjectPaths: true, Shell: m.shell})
 	if err != nil {
 		m.settingsMessage = err.Error()
 		return m, nil
@@ -509,7 +509,7 @@ func (m Model) saveSettings() (tea.Model, tea.Cmd) {
 		m.settingsMessage = err.Error()
 		return m, nil
 	}
-	resolved, err := config.Resolve(raw, config.ResolveOptions{})
+	resolved, err := config.Resolve(raw, config.ResolveOptions{Shell: m.shell})
 	if err != nil {
 		m.settingsMessage = err.Error()
 		return m, nil

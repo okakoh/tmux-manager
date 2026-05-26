@@ -46,12 +46,14 @@ type KeyBindingProvider interface {
 }
 
 type Model struct {
-	rawConfig config.Config
-	resolved  config.ResolvedConfig
-	state     tmux.State
-	executor  Executor
-	store     ConfigStore
-	keySource KeyBindingProvider
+	rawConfig  config.Config
+	resolved   config.ResolvedConfig
+	state      tmux.State
+	executor   Executor
+	store      ConfigStore
+	keySource  KeyBindingProvider
+	tmuxBinary string
+	shell      string
 
 	screen         Screen
 	previous       Screen
@@ -105,12 +107,23 @@ func NewModel(raw config.Config, resolved config.ResolvedConfig, state tmux.Stat
 }
 
 func NewModelWithServices(raw config.Config, resolved config.ResolvedConfig, state tmux.State, executor Executor, store ConfigStore, keySource KeyBindingProvider) Model {
+	return NewModelWithServicesAndShell(raw, resolved, state, executor, store, keySource, config.DefaultShell)
+}
+
+func NewModelWithServicesAndShell(raw config.Config, resolved config.ResolvedConfig, state tmux.State, executor Executor, store ConfigStore, keySource KeyBindingProvider, shell string) Model {
+	tmuxBinary := tmux.DefaultBinary
+	if client, ok := keySource.(tmux.Client); ok && client.Binary != "" {
+		tmuxBinary = client.Binary
+	}
 	if executor == nil {
-		client := tmux.NewClient("")
+		client := tmux.NewClient(tmuxBinary)
 		executor = runnerAdapter{runner: runner.New(runner.TmuxExecutor{Client: client})}
 		if keySource == nil {
 			keySource = client
 		}
+	}
+	if shell == "" {
+		shell = config.DefaultShell
 	}
 	return Model{
 		rawConfig:     raw,
@@ -119,6 +132,8 @@ func NewModelWithServices(raw config.Config, resolved config.ResolvedConfig, sta
 		executor:      executor,
 		store:         store,
 		keySource:     keySource,
+		tmuxBinary:    tmuxBinary,
+		shell:         shell,
 		screen:        ScreenHome,
 		pendingAction: planner.ActionLaunchOrAttach,
 	}
@@ -129,7 +144,11 @@ func Run(raw config.Config, resolved config.ResolvedConfig, state tmux.State, ex
 }
 
 func RunWithServices(raw config.Config, resolved config.ResolvedConfig, state tmux.State, executor Executor, store ConfigStore, keySource KeyBindingProvider) error {
-	program := tea.NewProgram(NewModelWithServices(raw, resolved, state, executor, store, keySource), tea.WithAltScreen())
+	return RunWithServicesAndShell(raw, resolved, state, executor, store, keySource, config.DefaultShell)
+}
+
+func RunWithServicesAndShell(raw config.Config, resolved config.ResolvedConfig, state tmux.State, executor Executor, store ConfigStore, keySource KeyBindingProvider, shell string) error {
+	program := tea.NewProgram(NewModelWithServicesAndShell(raw, resolved, state, executor, store, keySource, shell), tea.WithAltScreen())
 	_, err := program.Run()
 	return err
 }
@@ -152,7 +171,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 	case attachReadyMsg:
-		cmd := exec.Command(tmux.DefaultBinary, tmux.AttachSessionArgs(msg.step.TargetSession)...)
+		binary := m.tmuxBinary
+		if binary == "" {
+			binary = tmux.DefaultBinary
+		}
+		cmd := exec.Command(binary, tmux.AttachSessionArgs(msg.step.TargetSession)...) // #nosec G204 -- binary is the startup-resolved tmux path.
 		return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 			return attachFinishedMsg{err: err}
 		})

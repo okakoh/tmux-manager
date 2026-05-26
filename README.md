@@ -111,9 +111,9 @@ keeps its own session name, default window, enabled tools, and safety policy.
 
 - Go 1.26.3 or a newer compatible Go toolchain
 - `tmux` on `PATH`
-- `zsh` on `PATH`
+- a POSIX-style shell from `$SHELL`, or `sh` on `PATH`
 
-The current command wrapper runs tool commands through `zsh -lc`.
+The command wrapper runs tool commands through the resolved shell with `-lc`.
 
 ## Installation
 
@@ -167,6 +167,9 @@ If `XDG_CONFIG_HOME` is not set, it reads:
 If the config file does not exist, the TUI starts with an empty project list.
 Open settings with `s`, add projects/tools, and save with `Ctrl+S`.
 
+Treat config files as trusted input. Tool commands are executable shell commands,
+so do not run configs copied from untrusted sources without reviewing them.
+
 To start from the sample config:
 
 ```sh
@@ -192,7 +195,7 @@ tools:
     after_exit: shell
   shell:
     window: shell
-    command: zsh
+    command: sh
     after_exit: shell
 
 projects:
@@ -209,10 +212,10 @@ projects:
       - shell
 ```
 
-Each tool command currently runs through:
+Each tool command currently runs through the resolved shell:
 
 ```sh
-zsh -lc "<command>; exec zsh"
+sh -lc "<command>; exec sh"
 ```
 
 so the shell remains open after the tool exits.

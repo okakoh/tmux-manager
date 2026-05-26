@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -28,6 +30,8 @@ const (
 	FailurePolicyContinue FailurePolicy = "continue"
 
 	AfterExitShell AfterExit = "shell"
+
+	DefaultShell = "sh"
 )
 
 type Config struct {
@@ -109,6 +113,7 @@ type ResolvedWindow struct {
 
 type ResolveOptions struct {
 	RequireExistingProjectPaths bool
+	Shell                       string
 }
 
 type ValidationError struct {
@@ -151,6 +156,9 @@ func Resolve(cfg Config, opts ResolveOptions) (ResolvedConfig, error) {
 		rt := resolveTool(name, tool)
 		if rt.Command == "" {
 			problems = append(problems, fmt.Sprintf("tool %q command must not be empty", name))
+		}
+		if err := validateTmuxTargetName("tool "+strconvQuote(name)+" window", rt.Window); err != nil {
+			problems = append(problems, err.Error())
 		}
 		if err := validateAfterExit(rt.AfterExit); err != nil {
 			problems = append(problems, fmt.Sprintf("tool %q: %v", name, err))
@@ -215,6 +223,8 @@ func resolveProject(project Project, index int, tools map[string]ResolvedTool, o
 	}
 	if session == "" {
 		problems = append(problems, label+" session must not be empty")
+	} else if err := validateTmuxTargetName(label+" session", session); err != nil {
+		problems = append(problems, err.Error())
 	}
 
 	projectPath, err := ExpandPath(project.Path)
@@ -262,7 +272,7 @@ func resolveProject(project Project, index int, tools map[string]ResolvedTool, o
 
 	windows := make([]ResolvedWindow, 0, len(project.Tools))
 	for _, projectTool := range project.Tools {
-		rw, ok, toolProblems := resolveProjectTool(projectTool, projectPath, tools)
+		rw, ok, toolProblems := resolveProjectTool(projectTool, projectPath, tools, opts)
 		problems = append(problems, prefixProblems(label+" tool "+strconvQuote(projectTool.Name), toolProblems)...)
 		if ok {
 			windows = append(windows, rw)
@@ -288,7 +298,7 @@ func resolveProject(project Project, index int, tools map[string]ResolvedTool, o
 	}, problems
 }
 
-func resolveProjectTool(projectTool ProjectTool, projectPath string, tools map[string]ResolvedTool) (ResolvedWindow, bool, []string) {
+func resolveProjectTool(projectTool ProjectTool, projectPath string, tools map[string]ResolvedTool, opts ResolveOptions) (ResolvedWindow, bool, []string) {
 	var problems []string
 	name := strings.TrimSpace(projectTool.Name)
 	if name == "" {
@@ -309,6 +319,9 @@ func resolveProjectTool(projectTool ProjectTool, projectPath string, tools map[s
 	merged = applyOverride(merged, projectTool.Override)
 	if merged.Window == "" {
 		merged.Window = name
+	}
+	if err := validateTmuxTargetName("window", merged.Window); err != nil {
+		problems = append(problems, err.Error())
 	}
 	if merged.Command == "" {
 		problems = append(problems, "command must not be empty")
@@ -334,7 +347,7 @@ func resolveProjectTool(projectTool ProjectTool, projectPath string, tools map[s
 		Command:      merged.Command,
 		AfterExit:    merged.AfterExit,
 		Env:          cloneMap(merged.Env),
-		ShellCommand: BuildShellCommand(merged.Command, merged.AfterExit),
+		ShellCommand: BuildShellCommandWithShell(merged.Command, merged.AfterExit, opts.Shell),
 	}, len(problems) == 0, problems
 }
 
@@ -378,12 +391,38 @@ func applyOverride(base ResolvedTool, override ToolOverride) ResolvedTool {
 }
 
 func BuildShellCommand(command string, afterExit AfterExit) string {
+	return BuildShellCommandWithShell(command, afterExit, DefaultShell)
+}
+
+func BuildShellCommandWithShell(command string, afterExit AfterExit, shell string) string {
+	shell = strings.TrimSpace(shell)
+	if shell == "" {
+		shell = DefaultShell
+	}
 	switch afterExit {
 	case "", AfterExitShell:
-		return fmt.Sprintf("zsh -lc %q", command+"; exec zsh")
+		return fmt.Sprintf("%s -lc %q", quoteShellWord(shell), command+"; exec "+quoteShellWord(shell))
 	default:
-		return fmt.Sprintf("zsh -lc %q", command)
+		return fmt.Sprintf("%s -lc %q", quoteShellWord(shell), command)
 	}
+}
+
+func ResolveShellPath() (string, error) {
+	return ResolveShellPathFromEnv(os.Getenv("SHELL"))
+}
+
+func ResolveShellPathFromEnv(shell string) (string, error) {
+	shell = strings.TrimSpace(shell)
+	if shell != "" {
+		if path, err := exec.LookPath(shell); err == nil {
+			return path, nil
+		}
+	}
+	path, err := exec.LookPath(DefaultShell)
+	if err != nil {
+		return "", fmt.Errorf("shell not found: %w", err)
+	}
+	return path, nil
 }
 
 func ExpandPath(path string) (string, error) {
@@ -440,6 +479,18 @@ func validateAfterExit(value AfterExit) error {
 	}
 }
 
+func validateTmuxTargetName(label, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("%s must not be empty", label)
+	}
+	for _, r := range value {
+		if r == ':' || unicode.IsControl(r) {
+			return fmt.Errorf("%s %q must not contain ':' or control characters", label, value)
+		}
+	}
+	return nil
+}
+
 func containsWindow(windows []ResolvedWindow, window string) bool {
 	for _, candidate := range windows {
 		if candidate.Window == window {
@@ -467,6 +518,31 @@ func cloneMap(in map[string]string) map[string]string {
 		out[key] = value
 	}
 	return out
+}
+
+func quoteShellWord(value string) string {
+	if value == "" {
+		return "''"
+	}
+	if isSafeShellWord(value) {
+		return value
+	}
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
+
+func isSafeShellWord(value string) bool {
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			continue
+		}
+		switch r {
+		case '/', '.', '_', '-', '+':
+			continue
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func prefixProblems(prefix string, problems []string) []string {

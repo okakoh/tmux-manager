@@ -89,9 +89,9 @@ projects:
 
 - Go 1.26.3 以上の互換ツールチェーン
 - `PATH` 上の `tmux`
-- `PATH` 上の `zsh`
+- `$SHELL` または `PATH` 上の `sh` で解決できる POSIX 系シェル
 
-現在、ツールコマンドは `zsh -lc` 経由で実行されます。
+ツールコマンドは、解決されたシェルの `-lc` 経由で実行されます。
 
 ## インストール
 
@@ -144,6 +144,10 @@ $XDG_CONFIG_HOME/tmux-manager/config.yaml
 
 設定ファイルがない場合、TUI は空のプロジェクト一覧で起動します。`s` で設定画面を開き、プロジェクトやツールを追加して `Ctrl+S` で保存できます。
 
+設定ファイルは信頼済み入力として扱ってください。ツールの `command` は
+実行可能なシェルコマンドなので、信頼できない場所からコピーした設定は
+内容を確認してから使ってください。
+
 サンプル設定から始める場合:
 
 ```sh
@@ -169,7 +173,7 @@ tools:
     after_exit: shell
   shell:
     window: shell
-    command: zsh
+    command: sh
     after_exit: shell
 
 projects:
@@ -186,10 +190,10 @@ projects:
       - shell
 ```
 
-ツールコマンドは現在、次の形式で実行されます。
+ツールコマンドは、解決されたシェルで次の形式で実行されます。
 
 ```sh
-zsh -lc "<command>; exec zsh"
+sh -lc "<command>; exec sh"
 ```
 
 そのため、コマンド終了後もシェルが残ります。

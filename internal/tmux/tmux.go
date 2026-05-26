@@ -90,6 +90,17 @@ func NewClient(binary string) Client {
 	return Client{Binary: binary}
 }
 
+func ResolveBinary(binary string) (string, error) {
+	if binary == "" {
+		binary = DefaultBinary
+	}
+	path, err := exec.LookPath(binary)
+	if err != nil {
+		return "", &Error{Kind: ErrorMissingExecutable, Args: []string{binary}, Err: err}
+	}
+	return path, nil
+}
+
 func (s State) HasSession(name string) bool {
 	_, ok := s.FindSession(name)
 	return ok
@@ -188,7 +199,7 @@ func (c Client) run(ctx context.Context, args []string) (string, error) {
 	if _, err := exec.LookPath(binary); err != nil {
 		return "", &Error{Kind: ErrorMissingExecutable, Args: append([]string{binary}, args...), Err: err}
 	}
-	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd := exec.CommandContext(ctx, binary, args...) // #nosec G204 -- binary is resolved during startup and args are fixed tmux argv.
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		kind := ErrorCommandFailed
