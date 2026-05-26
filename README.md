@@ -15,7 +15,9 @@ memory, `tmux-manager` stores it as a small YAML config and gives you a focused
 terminal UI for launching and attaching to those workspaces.
 
 Japanese issues and discussions are welcome. / 日本語での Issue や相談も歓迎です。
-See [README.ja.md](README.ja.md) for the Japanese README.
+
+README
+[日本語/japanese](README.ja.md) 
 
 ## Design Philosophy
 
@@ -295,7 +297,7 @@ are welcome. Please include:
 - a minimal config snippet when reporting config or launch behavior
 - the expected behavior and actual behavior
 
-日本語での報告も歓迎です。必要であれば、英語のタイトルだけ短く付けて本文は日本語で書いてください。
+日本語での報告も歓迎です。
 
 ## Privacy
 
