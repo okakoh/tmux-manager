@@ -1,23 +1,48 @@
 # tmux-manager
 
+> **Other Languages**: **English** | [日本語](README.ja.md)
+
+[![Go Version](https://img.shields.io/github/go-mod/go-version/okakoh/tmux-manager)](https://golang.org)
+[![Release](https://img.shields.io/github/v/release/okakoh/tmux-manager)](https://github.com/okakoh/tmux-manager/releases)
+[![License](https://img.shields.io/github/license/okakoh/tmux-manager)](LICENSE)
+
 `tmux-manager` is a Go TUI for starting, re-entering, and safely rebuilding
 project-specific tmux workspaces.
 
+## Key Features
+
+- 🚀 **Zero-config start**: Works with empty config, build as you go
+- 🔄 **Session policies**: Attach, prompt, or recreate existing sessions  
+- 📁 **Project-centric**: Organize by projects, not individual tmux commands
+- ⚡ **Single binary**: No daemon, no dependencies beyond tmux
+- 🛠️ **Reusable tools**: Share tool definitions across projects
+
 This project started as a personal tool and is published while it is still in
 active development. Expect rough edges, small breaking changes, and documentation
-that may lag behind the implementation. Feedback from similar day-to-day
-development setups is welcome.
-
-It is designed for development setups where one repository usually needs
-several repeatable tmux windows: an editor, a shell, a test runner, logs, or
-AI coding tools. Instead of keeping this layout in shell history or tmux muscle
-memory, `tmux-manager` stores it as a small YAML config and gives you a focused
-terminal UI for launching and attaching to those workspaces.
+that may lag behind the implementation. Feedback from developers with similar 
+daily workflows is welcome.
 
 Japanese issues and discussions are welcome. / 日本語での Issue や相談も歓迎です。
 
-README
-[日本語/japanese](README.ja.md) 
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Use Cases](#use-cases)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [TUI Usage](#tui-usage)
+- [Contributing](#contributing)
+
+## Quick Start
+
+```sh
+# Install
+go install github.com/okakoh/tmux-manager/cmd/tmux-manager@latest
+
+# Run with empty config to start
+tmux-manager
+# Press 's' to open settings, add your first project
+```
 
 ## Design Philosophy
 
@@ -31,17 +56,27 @@ README
 - **Single binary**: the app is distributed as a small Go command with no daemon
   or background service.
 
-## Use Case: Next.js Project Workspaces
+## Use Cases
 
-When you work across several projects, even a single Next.js app can require a
-small stack of terminal processes before real work starts:
+It is designed for development setups where one repository usually needs
+several repeatable tmux windows: an editor, a shell, a test runner, logs, or
+AI coding tools. Instead of keeping this layout in shell history or tmux muscle
+memory, `tmux-manager` stores it as a small YAML config and gives you a focused
+terminal UI for launching and attaching to those workspaces.
 
-- a development server such as `pnpm dev` or `next dev`
+**Web Development**
+- Dev server, editor, tests, file manager
+
+**Go Projects**  
+- Main editor, test runner, air/hot reload, database console
+
+**Data Science**
+- Jupyter, editor, data viewer, model training logs
+
+**AI Development**
 - Codex, Claude Code, Hermes Agent, or another AI coding agent
-- a normal shell for Git, package scripts, and one-off commands
-- a file manager such as `yazi`, including when you inspect files from a phone
-  or a remote terminal
-- logs, tests, database consoles, or other project-specific tools
+- Normal shell for Git, package scripts, and one-off commands
+- File manager for inspecting files from phone or remote terminal
 
 The value of `tmux-manager` is that this setup becomes a project entry instead
 of a repeated manual ritual. You choose the project in the TUI, launch or attach
@@ -213,31 +248,51 @@ You can also pass a config path explicitly:
 tmux-manager -config examples/config.yaml
 ```
 
-## Example
+## Configuration Examples
 
+### Minimal (2 windows)
 ```yaml
 tools:
-  editor:
-    window: editor
+  edit:
+    window: edit
     command: nvim
     after_exit: shell
-  shell:
-    window: shell
-    command: sh
+  term:
+    window: term
+    command: bash
     after_exit: shell
 
 projects:
-  - name: sample-api
-    path: ~/src/sample-api
-    session: sample-api
-    default_window: editor
+  - name: my-project
+    path: ~/my-project
+    session: my-project
+    default_window: edit
     window_selection: configured
     on_existing: attach
     confirm_kill: true
     failure_policy: stop
     tools:
-      - editor
-      - shell
+      - edit
+      - term
+```
+
+### With Development Server
+```yaml
+# Previous tools +
+tools:
+  serve:
+    window: serve
+    command: npm run dev
+    after_exit: shell
+
+# Add 'serve' to project tools
+projects:
+  - name: my-web-app
+    # ... other settings
+    tools:
+      - edit
+      - term
+      - serve
 ```
 
 Each tool command currently runs through the resolved shell:

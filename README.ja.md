@@ -1,14 +1,46 @@
 # tmux-manager
 
-`tmux-manager` は、プロジェクトごとの tmux 作業環境を起動、再接続、再構築するための Go 製 TUI です。
+> **Other Languages**: [English](README.md) | **日本語**
+
+[![Go Version](https://img.shields.io/github/go-mod/go-version/okakoh/tmux-manager)](https://golang.org)
+[![Release](https://img.shields.io/github/v/release/okakoh/tmux-manager)](https://github.com/okakoh/tmux-manager/releases)
+[![License](https://img.shields.io/github/license/okakoh/tmux-manager)](LICENSE)
+
+`tmux-manager` は、プロジェクトごとの tmux 作業環境を起動、再接続、再構築するための Go 製ターミナルUI です。
+
+## 主な機能
+
+- 🚀 **設定不要で開始**: 空の設定でも動作、使いながら設定を構築
+- 🔄 **セッション方針**: 既存セッションに接続、確認、または再作成
+- 📁 **プロジェクト中心**: 個別のtmuxコマンドではなく、プロジェクト単位で整理
+- ⚡ **単体バイナリ**: デーモンなし、tmux以外の依存関係なし
+- 🛠️ **再利用可能なツール**: プロジェクト間でツール定義を共有
 
 このリポジトリは、作者が個人利用している道具を公開している段階のものです。まだ開発途中なので、挙動や設定形式が小さく変わる可能性があります。実際の開発作業で使いながら整えているツールとして見てもらえると助かります。
 
-複数のリポジトリを行き来して開発していると、毎回同じような tmux ウィンドウを開くことになります。エディタ、シェル、テスト、ログ、AI コーディングエージェントなどです。`tmux-manager` は、その構成を YAML に書いておき、TUI からプロジェクト単位で起動・接続できるようにします。
+英語での Issue や相談も歓迎です。
 
-English README: [README.md](README.md)
+## 目次
 
-## 方針
+- [クイックスタート](#クイックスタート)
+- [ユースケース](#ユースケース)
+- [インストール](#インストール)
+- [設定ファイル](#設定ファイル)
+- [TUI の操作](#tui-の操作)
+- [コントリビュート](#コントリビュート)
+
+## クイックスタート
+
+```sh
+# インストール
+go install github.com/okakoh/tmux-manager/cmd/tmux-manager@latest
+
+# 空の設定で実行して開始
+tmux-manager
+# 's' を押して設定画面を開き、最初のプロジェクトを追加
+```
+
+## 設計方針
 
 - **プロジェクト単位で扱う**: tmux コマンドの断片ではなく、作業対象のプロジェクトを中心にセッションを管理します。
 - **設定を見える場所に置く**: 使い回すツールやプロジェクト構成は YAML に保存します。
@@ -16,17 +48,25 @@ English README: [README.md](README.md)
 - **中身は普通の tmux**: `tmux` CLI を呼び出します。`.tmux.conf` は書き換えません。
 - **単体バイナリ**: デーモンや常駐サービスはありません。
 
-## ユースケース: Next.js アプリ開発
+## ユースケース
 
-複数のプロジェクトを並行して開発していると、Next.js アプリ 1 つを触るだけでもいくつかのプロセスを起動することになります。
+複数のリポジトリを行き来して開発していると、毎回同じような tmux ウィンドウを開くことになります。エディタ、シェル、テスト、ログ、AI コーディングエージェントなどです。`tmux-manager` は、その構成を YAML に書いておき、ターミナルUI からプロジェクト単位で起動・接続できるようにします。
 
-- `pnpm dev` や `next dev` などの開発サーバー
+**Web 開発**
+- 開発サーバー、エディタ、テスト、ファイルマネージャー
+
+**Go プロジェクト**
+- メインエディタ、テストランナー、air/ホットリロード、データベースコンソール
+
+**データサイエンス**
+- Jupyter、エディタ、データビューアー、モデル訓練ログ
+
+**AI 開発**
 - Codex、Claude Code、Hermes Agent などの AI コーディングエージェント
 - Git や package scripts を実行するための通常のシェル
-- ファイル確認用の `yazi`
-- テスト、ログ、DB コンソールなど、そのプロジェクト固有の補助ツール
+- スマホやリモート端末からのファイル確認用ツール
 
-これを毎回手で開く代わりに、`tmux-manager` では「このプロジェクトではこのウィンドウを開く」という構成を保存できます。TUI でプロジェクトを選ぶだけで、同じ名前の tmux ウィンドウが揃います。すでにセッションがある場合は、そのまま接続する、確認してから再作成する、常に再作成する、といった方針もプロジェクトごとに指定できます。
+これを毎回手で開く代わりに、`tmux-manager` では「このプロジェクトではこのウィンドウを開く」という構成を保存できます。ターミナルUI でプロジェクトを選ぶだけで、同じ名前の tmux ウィンドウが揃います。すでにセッションがある場合は、そのまま接続する、確認してから再作成する、常に再作成する、といった方針もプロジェクトごとに指定できます。
 
 たとえば Next.js アプリなら、次のような設定が考えられます。
 
@@ -134,9 +174,7 @@ brew install okakoh/tap/tmux-manager
 ```
 
 Homebrew formula は、意図的に Homebrew の `tmux` formula へ依存しません。
-tmux ユーザーはすでに tmux server を起動していることが多く、`tmux-manager`
-のインストール時に tmux client だけが自動更新されると、既存 server と
-バージョンがずれる可能性があるためです。tmux を別途インストールまたは
+多くのtmuxユーザーは既にtmux serverを起動しています。`tmux-manager`のインストール時にtmux clientのみが自動更新されると、既存のserverとバージョンが合わなくなる可能性があります。tmux を別途インストールまたは
 更新した場合は、tmux server を再起動するか、その server と合う tmux client
 を `tmux_binary` で指定してください。
 
@@ -191,31 +229,51 @@ cp examples/config.yaml ~/.config/tmux-manager/config.yaml
 tmux-manager -config examples/config.yaml
 ```
 
-## 最小例
+## 設定例
 
+### 最小構成（2ウィンドウ）
 ```yaml
 tools:
-  editor:
-    window: editor
+  edit:
+    window: edit
     command: nvim
     after_exit: shell
-  shell:
-    window: shell
-    command: sh
+  term:
+    window: term
+    command: bash
     after_exit: shell
 
 projects:
-  - name: sample-api
-    path: ~/src/sample-api
-    session: sample-api
-    default_window: editor
+  - name: my-project
+    path: ~/my-project
+    session: my-project
+    default_window: edit
     window_selection: configured
     on_existing: attach
     confirm_kill: true
     failure_policy: stop
     tools:
-      - editor
-      - shell
+      - edit
+      - term
+```
+
+### 開発サーバーを追加
+```yaml
+# 前のツール定義 +
+tools:
+  serve:
+    window: serve
+    command: npm run dev
+    after_exit: shell
+
+# プロジェクトのツールに 'serve' を追加
+projects:
+  - name: my-web-app
+    # ... その他の設定
+    tools:
+      - edit
+      - term
+      - serve
 ```
 
 ツールコマンドは、解決されたシェルで次の形式で実行されます。
