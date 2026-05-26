@@ -35,6 +35,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	tmuxBinary, err := tmux.ResolveBinary("")
+	if err != nil {
+		return err
+	}
+	shell, err := config.ResolveShellPath()
+	if err != nil {
+		return err
+	}
 	raw, err := store.Load()
 	if err != nil {
 		if errors.Is(err, storage.ErrConfigNotFound) {
@@ -43,15 +51,15 @@ func run() error {
 			return err
 		}
 	}
-	resolved, err := config.Resolve(raw, config.ResolveOptions{})
+	resolved, err := config.Resolve(raw, config.ResolveOptions{Shell: shell})
 	if err != nil {
 		return err
 	}
 
-	tmuxClient := tmux.NewClient("")
+	tmuxClient := tmux.NewClient(tmuxBinary)
 	state, err := tmuxClient.Snapshot(context.Background())
 	if err != nil {
 		state = tmux.State{}
 	}
-	return tui.RunWithServices(raw, resolved, state, nil, store, tmuxClient)
+	return tui.RunWithServicesAndShell(raw, resolved, state, nil, store, tmuxClient, shell)
 }

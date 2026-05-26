@@ -87,6 +87,26 @@ func TestSaveCreatesConfigAndBackup(t *testing.T) {
 	}
 }
 
+func TestSaveCreatesPrivateConfigDirectory(t *testing.T) {
+	root := t.TempDir()
+	projectDir := t.TempDir()
+	path := filepath.Join(root, "nested", "config.yaml")
+	store, err := New(path)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if _, err := store.Save(validConfig(projectDir, "codex"), config.ResolveOptions{RequireExistingProjectPaths: true}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	info, err := os.Stat(filepath.Dir(path))
+	if err != nil {
+		t.Fatalf("Stat(config dir) error = %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o700 {
+		t.Fatalf("config dir mode = %v, want 0700", got)
+	}
+}
+
 func TestSaveCreatesUniqueBackupNamesWithinSameSecond(t *testing.T) {
 	dir := t.TempDir()
 	projectDir := t.TempDir()

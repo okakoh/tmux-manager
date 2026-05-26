@@ -98,6 +98,36 @@ projects:
 	}
 }
 
+func TestResolveRejectsUnsafeTmuxTargetNames(t *testing.T) {
+	cfg := Config{
+		Tools: map[string]Tool{
+			"bad:tool": {Command: "codex"},
+		},
+		Projects: []Project{{
+			Name:    "sample",
+			Path:    "/tmp",
+			Session: "sample:api",
+			Tools: []ProjectTool{{
+				Name: "bad:tool",
+				Override: ToolOverride{
+					Window: "bad:window",
+				},
+			}},
+		}},
+	}
+	_, err := Resolve(cfg, ResolveOptions{})
+	var validationErr *ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("Resolve() error = %T %v, want ValidationError", err, err)
+	}
+	joined := strings.Join(validationErr.Problems, "\n")
+	for _, want := range []string{"session", "window", "must not contain ':'"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("validation problems missing %q in:\n%s", want, joined)
+		}
+	}
+}
+
 func TestResolveCanRequireExistingProjectPaths(t *testing.T) {
 	cfg := Config{
 		Tools: map[string]Tool{"codex": {Command: "codex"}},
@@ -133,8 +163,26 @@ func TestExpandPath(t *testing.T) {
 
 func TestBuildShellCommand(t *testing.T) {
 	got := BuildShellCommand("codex --ask-for-approval never", AfterExitShell)
-	want := `zsh -lc "codex --ask-for-approval never; exec zsh"`
+	want := `sh -lc "codex --ask-for-approval never; exec sh"`
 	if got != want {
 		t.Fatalf("BuildShellCommand() = %q, want %q", got, want)
+	}
+}
+
+func TestBuildShellCommandWithShell(t *testing.T) {
+	got := BuildShellCommandWithShell("codex", AfterExitShell, "/bin/zsh")
+	want := `/bin/zsh -lc "codex; exec /bin/zsh"`
+	if got != want {
+		t.Fatalf("BuildShellCommandWithShell() = %q, want %q", got, want)
+	}
+}
+
+func TestResolveShellPathFallsBackToSh(t *testing.T) {
+	got, err := ResolveShellPathFromEnv(filepath.Join(t.TempDir(), "missing-shell"))
+	if err != nil {
+		t.Fatalf("ResolveShellPathFromEnv() error = %v", err)
+	}
+	if filepath.Base(got) != DefaultShell {
+		t.Fatalf("ResolveShellPathFromEnv() = %q, want fallback shell %q", got, DefaultShell)
 	}
 }

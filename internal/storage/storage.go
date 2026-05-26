@@ -71,14 +71,14 @@ func (s *Store) Save(cfg config.Config, opts config.ResolveOptions) (string, err
 		return "", err
 	}
 	dir := filepath.Dir(s.ConfigPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
 
 	backupPath := ""
 	if _, err := os.Stat(s.ConfigPath); err == nil {
 		backupPath = s.backupPath()
-		if err := copyFile(s.ConfigPath, backupPath); err != nil {
+		if err := copyFileInDir(dir, filepath.Base(s.ConfigPath), filepath.Base(backupPath)); err != nil {
 			return "", err
 		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -158,14 +158,20 @@ func backupPrefix() string {
 	return ConfigFileName + ".bak-"
 }
 
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+func copyFileInDir(dir, srcName, dstName string) error {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
+	in, err := root.Open(srcName)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
 
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	out, err := root.OpenFile(dstName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
