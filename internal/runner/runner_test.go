@@ -3,6 +3,8 @@ package runner
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/okakoh/tmux-manager/internal/config"
@@ -48,6 +50,42 @@ func TestAttachFailureIsAlwaysSurfaced(t *testing.T) {
 	}
 	if len(exec.steps) != len(plan.Steps) {
 		t.Fatalf("executed steps = %d, want %d", len(exec.steps), len(plan.Steps))
+	}
+}
+
+func TestPreflightUsesStepEnvPath(t *testing.T) {
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "custom-tool")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	executor := TmuxExecutor{Shell: "/bin/sh"}
+	step := planner.PlanStep{
+		ToolID:       "custom",
+		TargetWindow: "custom",
+		Command:      "custom-tool --flag",
+		Env:          map[string]string{"PATH": dir},
+	}
+	if err := executor.preflightCommand(context.Background(), step); err != nil {
+		t.Fatalf("preflightCommand() error = %v", err)
+	}
+}
+
+func TestPreflightReportsMissingExecutable(t *testing.T) {
+	executor := TmuxExecutor{Shell: "/bin/sh"}
+	step := planner.PlanStep{
+		ToolID:       "missing",
+		TargetWindow: "missing",
+		Command:      "missing-tool",
+		Env:          map[string]string{"PATH": t.TempDir()},
+	}
+	err := executor.preflightCommand(context.Background(), step)
+	var missing *MissingCommandError
+	if !errors.As(err, &missing) {
+		t.Fatalf("preflightCommand() error = %T %v, want MissingCommandError", err, err)
+	}
+	if missing.Executable != "missing-tool" {
+		t.Fatalf("Executable = %q, want missing-tool", missing.Executable)
 	}
 }
 
