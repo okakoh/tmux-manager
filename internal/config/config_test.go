@@ -106,6 +106,31 @@ projects:
 	}
 }
 
+func TestResolveRejectsInvalidEnvNames(t *testing.T) {
+	cfg := Config{
+		Tools: map[string]Tool{
+			"codex": {
+				Command: "codex",
+				Env:     map[string]string{"BAD-NAME": "value"},
+			},
+		},
+		Projects: []Project{{
+			Name:  "sample",
+			Path:  "/tmp",
+			Tools: []ProjectTool{{Name: "codex"}},
+		}},
+	}
+	_, err := Resolve(cfg, ResolveOptions{})
+	var validationErr *ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("Resolve() error = %T %v, want ValidationError", err, err)
+	}
+	joined := strings.Join(validationErr.Problems, "\n")
+	if !strings.Contains(joined, "BAD-NAME") {
+		t.Fatalf("validation problems missing env name:\n%s", joined)
+	}
+}
+
 func TestResolveRejectsUnsafeTmuxTargetNames(t *testing.T) {
 	cfg := Config{
 		Tools: map[string]Tool{
@@ -182,6 +207,40 @@ func TestBuildShellCommandWithShell(t *testing.T) {
 	want := `/bin/zsh -lc "codex; exec /bin/zsh"`
 	if got != want {
 		t.Fatalf("BuildShellCommandWithShell() = %q, want %q", got, want)
+	}
+}
+
+func TestBuildShellCommandWithShellAndEnv(t *testing.T) {
+	t.Setenv("HOME", "/Users/me")
+	t.Setenv("PATH", "/usr/bin:/bin")
+	env := buildWindowEnv(map[string]string{"PATH": "$HOME/.opencode/bin:$PATH"})
+	got := BuildShellCommandWithShellAndEnv("opencode", AfterExitShell, "/bin/zsh", env)
+	want := `/bin/zsh -lc "export PATH='/Users/me/.opencode/bin:/usr/bin:/bin'; opencode; exec /bin/zsh"`
+	if got != want {
+		t.Fatalf("BuildShellCommandWithShellAndEnv() = %q, want %q", got, want)
+	}
+}
+
+func TestResolveAddsProcessPathToWindowEnv(t *testing.T) {
+	t.Setenv("PATH", "/custom/bin:/usr/bin")
+	cfg := Config{
+		Tools: map[string]Tool{"codex": {Command: "codex"}},
+		Projects: []Project{{
+			Name:  "sample",
+			Path:  "/tmp",
+			Tools: []ProjectTool{{Name: "codex"}},
+		}},
+	}
+	resolved, err := Resolve(cfg, ResolveOptions{})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	window := resolved.Projects[0].Windows[0]
+	if got := window.Env["PATH"]; got != "/custom/bin:/usr/bin" {
+		t.Fatalf("window PATH = %q", got)
+	}
+	if !strings.Contains(window.ShellCommand, "export PATH='/custom/bin:/usr/bin'") {
+		t.Fatalf("ShellCommand missing PATH export: %q", window.ShellCommand)
 	}
 }
 

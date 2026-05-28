@@ -276,13 +276,25 @@ projects:
       - serve
 ```
 
-ツールコマンドは、解決されたシェルで次の形式で実行されます。
+ツールコマンドは、解決されたシェルで実行されます。`tmux-manager` は起動時の
+`PATH` と tool の `env` を、そのシェル内で tool 起動前に反映します。
 
 ```sh
-sh -lc "<command>; exec sh"
+sh -lc "export PATH='<launch PATH>'; <command>; exec sh"
 ```
 
-そのため、コマンド終了後もシェルが残ります。
+そのため、コマンド終了後もシェルが残ります。対話シェルだけが知っている場所に
+tool が入っている場合は、明示的に追加できます。
+
+```yaml
+tools:
+  opencode:
+    window: opencode
+    command: opencode
+    after_exit: shell
+    env:
+      PATH: "$HOME/.opencode/bin:$PATH"
+```
 
 ## TUI の操作
 

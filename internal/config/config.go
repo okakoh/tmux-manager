@@ -109,6 +109,7 @@ type ResolvedWindow struct {
 	Command      string
 	AfterExit    AfterExit
 	Env          map[string]string
+	Shell        string
 	ShellCommand string
 }
 
@@ -164,6 +165,7 @@ func Resolve(cfg Config, opts ResolveOptions) (ResolvedConfig, error) {
 		if err := validateAfterExit(rt.AfterExit); err != nil {
 			problems = append(problems, fmt.Sprintf("tool %q: %v", name, err))
 		}
+		problems = append(problems, prefixProblems("tool "+strconvQuote(name)+" env", validateEnv(rt.Env))...)
 		resolvedTools[name] = rt
 	}
 
@@ -333,6 +335,7 @@ func resolveProjectTool(projectTool ProjectTool, projectPath string, tools map[s
 	if err := validateAfterExit(merged.AfterExit); err != nil {
 		problems = append(problems, err.Error())
 	}
+	problems = append(problems, prefixProblems("env", validateEnv(merged.Env))...)
 	cwd := merged.CWD
 	if cwd == "" {
 		cwd = projectPath
@@ -341,14 +344,16 @@ func resolveProjectTool(projectTool ProjectTool, projectPath string, tools map[s
 	if err != nil {
 		problems = append(problems, "cwd: "+err.Error())
 	}
+	env := buildWindowEnv(merged.Env)
 	return ResolvedWindow{
 		ToolID:       name,
 		Window:       merged.Window,
 		CWD:          expandedCWD,
 		Command:      merged.Command,
 		AfterExit:    merged.AfterExit,
-		Env:          cloneMap(merged.Env),
-		ShellCommand: BuildShellCommandWithShell(merged.Command, merged.AfterExit, opts.Shell),
+		Env:          env,
+		Shell:        resolvedShell(opts.Shell),
+		ShellCommand: BuildShellCommandWithShellAndEnv(merged.Command, merged.AfterExit, opts.Shell, env),
 	}, len(problems) == 0, problems
 }
 
@@ -396,15 +401,23 @@ func BuildShellCommand(command string, afterExit AfterExit) string {
 }
 
 func BuildShellCommandWithShell(command string, afterExit AfterExit, shell string) string {
+	return BuildShellCommandWithShellAndEnv(command, afterExit, shell, nil)
+}
+
+func BuildShellCommandWithShellAndEnv(command string, afterExit AfterExit, shell string, env map[string]string) string {
 	shell = strings.TrimSpace(shell)
 	if shell == "" {
 		shell = DefaultShell
 	}
+	script := command
+	if exports := exportScript(env); exports != "" {
+		script = exports + script
+	}
 	switch afterExit {
 	case "", AfterExitShell:
-		return fmt.Sprintf("%s -lc %q", quoteShellWord(shell), command+"; exec "+quoteShellWord(shell))
+		return fmt.Sprintf("%s -lc %q", quoteShellWord(shell), script+"; exec "+quoteShellWord(shell))
 	default:
-		return fmt.Sprintf("%s -lc %q", quoteShellWord(shell), command)
+		return fmt.Sprintf("%s -lc %q", quoteShellWord(shell), script)
 	}
 }
 
@@ -480,6 +493,35 @@ func validateAfterExit(value AfterExit) error {
 	}
 }
 
+func validateEnv(env map[string]string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	var problems []string
+	for _, key := range sortedKeys(env) {
+		if !isValidEnvName(key) {
+			problems = append(problems, fmt.Sprintf("%q must be a POSIX-style environment variable name", key))
+		}
+	}
+	return problems
+}
+
+func isValidEnvName(value string) bool {
+	if value == "" {
+		return false
+	}
+	for i, r := range value {
+		if r == '_' || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
+			continue
+		}
+		if i > 0 && r >= '0' && r <= '9' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 func validateTmuxTargetName(label, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s must not be empty", label)
@@ -519,6 +561,55 @@ func cloneMap(in map[string]string) map[string]string {
 		out[key] = value
 	}
 	return out
+}
+
+func buildWindowEnv(in map[string]string) map[string]string {
+	out := expandEnvValues(in)
+	if _, ok := out["PATH"]; !ok {
+		if path := os.Getenv("PATH"); path != "" {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out["PATH"] = path
+		}
+	}
+	return out
+}
+
+func expandEnvValues(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for _, key := range sortedKeys(in) {
+		value := in[key]
+		out[key] = os.Expand(value, func(name string) string {
+			if existing, ok := out[name]; ok {
+				return existing
+			}
+			return os.Getenv(name)
+		})
+	}
+	return out
+}
+
+func resolvedShell(shell string) string {
+	shell = strings.TrimSpace(shell)
+	if shell == "" {
+		return DefaultShell
+	}
+	return shell
+}
+
+func exportScript(env map[string]string) string {
+	if len(env) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, key := range sortedKeys(env) {
+		parts = append(parts, "export "+key+"="+quoteShellWord(env[key]))
+	}
+	return strings.Join(parts, "; ") + "; "
 }
 
 func quoteShellWord(value string) string {

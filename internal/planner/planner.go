@@ -55,9 +55,13 @@ type ActionPlan struct {
 type PlanStep struct {
 	Kind           StepKind
 	Description    string
+	ToolID         string
 	TargetSession  string
 	TargetWindow   string
 	CWD            string
+	Command        string
+	Env            map[string]string
+	Shell          string
 	ShellCommand   string
 	CommandPreview []string
 	Destructive    bool
@@ -191,9 +195,13 @@ func newSessionStep(session string, window config.ResolvedWindow) PlanStep {
 	return PlanStep{
 		Kind:           StepNewSession,
 		Description:    fmt.Sprintf("Create tmux session %q with window %q", session, window.Window),
+		ToolID:         window.ToolID,
 		TargetSession:  session,
 		TargetWindow:   window.Window,
 		CWD:            window.CWD,
+		Command:        window.Command,
+		Env:            window.Env,
+		Shell:          window.Shell,
 		ShellCommand:   window.ShellCommand,
 		CommandPreview: args,
 	}
@@ -204,9 +212,13 @@ func newWindowStep(session string, window config.ResolvedWindow) PlanStep {
 	return PlanStep{
 		Kind:           StepNewWindow,
 		Description:    fmt.Sprintf("Create tmux window %q", window.Window),
+		ToolID:         window.ToolID,
 		TargetSession:  session,
 		TargetWindow:   window.Window,
 		CWD:            window.CWD,
+		Command:        window.Command,
+		Env:            window.Env,
+		Shell:          window.Shell,
 		ShellCommand:   window.ShellCommand,
 		CommandPreview: args,
 	}

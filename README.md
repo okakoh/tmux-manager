@@ -295,13 +295,26 @@ projects:
       - serve
 ```
 
-Each tool command currently runs through the resolved shell:
+Each tool command runs through the resolved shell. `tmux-manager` injects the
+launch-time `PATH` and any tool `env` values inside that shell before the tool
+starts:
 
 ```sh
-sh -lc "<command>; exec sh"
+sh -lc "export PATH='<launch PATH>'; <command>; exec sh"
 ```
 
-so the shell remains open after the tool exits.
+so the shell remains open after the tool exits. If a tool is installed in a
+directory that only your interactive shell knows about, add it explicitly:
+
+```yaml
+tools:
+  opencode:
+    window: opencode
+    command: opencode
+    after_exit: shell
+    env:
+      PATH: "$HOME/.opencode/bin:$PATH"
+```
 
 ## TUI Usage
 

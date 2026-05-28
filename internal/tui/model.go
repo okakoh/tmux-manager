@@ -113,19 +113,19 @@ func NewModelWithServices(raw config.Config, resolved config.ResolvedConfig, sta
 }
 
 func NewModelWithServicesAndShell(raw config.Config, resolved config.ResolvedConfig, state tmux.State, executor Executor, store ConfigStore, keySource KeyBindingProvider, shell string) Model {
+	if shell == "" {
+		shell = config.DefaultShell
+	}
 	tmuxBinary := tmux.DefaultBinary
 	if client, ok := keySource.(tmux.Client); ok && client.Binary != "" {
 		tmuxBinary = client.Binary
 	}
 	if executor == nil {
 		client := tmux.NewClient(tmuxBinary)
-		executor = runnerAdapter{runner: runner.New(runner.TmuxExecutor{Client: client})}
+		executor = runnerAdapter{runner: runner.New(runner.TmuxExecutor{Client: client, Shell: shell})}
 		if keySource == nil {
 			keySource = client
 		}
-	}
-	if shell == "" {
-		shell = config.DefaultShell
 	}
 	return Model{
 		rawConfig:     raw,
