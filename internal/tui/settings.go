@@ -252,7 +252,11 @@ func (m *Model) commitEditValue() {
 		project := &m.staged.Projects[m.settingsProject]
 		switch m.editField {
 		case "name":
-			project.Name = strings.TrimSpace(m.editValue)
+			newName := strings.TrimSpace(m.editValue)
+			if project.Session == "" || project.Session == project.Name {
+				project.Session = newName
+			}
+			project.Name = newName
 		case "path":
 			project.Path = strings.TrimSpace(m.editValue)
 		case "session":
@@ -499,7 +503,7 @@ func (m Model) saveSettings() (tea.Model, tea.Cmd) {
 		m.settingsMessage = "no config store is available"
 		return m, nil
 	}
-	backup, err := m.store.Save(m.staged, config.ResolveOptions{RequireExistingProjectPaths: true, Shell: m.shell})
+	backup, err := m.store.Save(m.staged, config.ResolveOptions{RequireExistingProjectPaths: true, RejectDuplicateSessions: true, Shell: m.shell})
 	if err != nil {
 		m.settingsMessage = err.Error()
 		return m, nil
@@ -839,6 +843,9 @@ func uniqueProjectName(projects []config.Project, base string) string {
 	used := map[string]struct{}{}
 	for _, project := range projects {
 		used[project.Name] = struct{}{}
+		if project.Session != "" {
+			used[project.Session] = struct{}{}
+		}
 	}
 	return uniqueName(base, used)
 }

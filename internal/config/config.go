@@ -115,6 +115,7 @@ type ResolvedWindow struct {
 
 type ResolveOptions struct {
 	RequireExistingProjectPaths bool
+	RejectDuplicateSessions     bool
 	Shell                       string
 }
 
@@ -170,6 +171,7 @@ func Resolve(cfg Config, opts ResolveOptions) (ResolvedConfig, error) {
 	}
 
 	seenProjects := map[string]struct{}{}
+	sessionOwners := map[string]string{}
 	resolvedProjects := make([]ResolvedProject, 0, len(cfg.Projects))
 	for i, project := range cfg.Projects {
 		rp, projectProblems := resolveProject(project, i, resolvedTools, opts)
@@ -179,6 +181,15 @@ func Resolve(cfg Config, opts ResolveOptions) (ResolvedConfig, error) {
 				problems = append(problems, fmt.Sprintf("project %q is duplicated", rp.Name))
 			}
 			seenProjects[rp.Name] = struct{}{}
+		}
+		if rp.Session != "" {
+			if owner, exists := sessionOwners[rp.Session]; exists {
+				if opts.RejectDuplicateSessions {
+					problems = append(problems, fmt.Sprintf("project %q session %q is already used by project %q", rp.Name, rp.Session, owner))
+				}
+			} else {
+				sessionOwners[rp.Session] = rp.Name
+			}
 		}
 		resolvedProjects = append(resolvedProjects, rp)
 	}

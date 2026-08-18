@@ -633,3 +633,47 @@ func testConfig(t *testing.T, projectPath string) (config.Config, config.Resolve
 	}
 	return raw, resolved
 }
+
+func TestSettingsRenameProjectFollowsSessionName(t *testing.T) {
+	m := Model{staged: config.Config{
+		Projects: []config.Project{
+			{Name: "new-project", Path: ".", Session: "new-project"},
+			{Name: "amazon", Path: ".", Session: "shopping"},
+		},
+	}}
+
+	m.editKind = "project"
+	m.editField = "name"
+	m.editValue = "sunk"
+	m.settingsProject = 0
+	m.commitEditValue()
+
+	if got := m.staged.Projects[0].Session; got != "sunk" {
+		t.Fatalf("session = %q, want sunk after rename", got)
+	}
+
+	m.editValue = "amazon-jp"
+	m.settingsProject = 1
+	m.commitEditValue()
+
+	if got := m.staged.Projects[1].Session; got != "shopping" {
+		t.Fatalf("session = %q, want customized session preserved", got)
+	}
+}
+
+func TestSettingsAddProjectAvoidsExistingSessionNames(t *testing.T) {
+	m := Model{staged: config.Config{
+		Tools:    map[string]config.Tool{},
+		Projects: []config.Project{{Name: "gmo", Path: ".", Session: "new-project"}},
+	}}
+
+	m.addProject()
+
+	added := m.staged.Projects[1]
+	if added.Session == "new-project" || added.Name == "new-project" {
+		t.Fatalf("added project = %q/%q, want no collision with existing session", added.Name, added.Session)
+	}
+	if added.Name != added.Session {
+		t.Fatalf("added project name %q and session %q should match", added.Name, added.Session)
+	}
+}

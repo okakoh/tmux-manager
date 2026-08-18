@@ -13,7 +13,7 @@ import (
 	"github.com/okakoh/tmux-manager/internal/tui"
 )
 
-var version = "0.1.3"
+var version = "0.1.4"
 
 func main() {
 	if err := run(); err != nil {
