@@ -253,3 +253,39 @@ func TestResolveShellPathFallsBackToSh(t *testing.T) {
 		t.Fatalf("ResolveShellPathFromEnv() = %q, want fallback shell %q", got, DefaultShell)
 	}
 }
+
+func TestResolveRejectsDuplicateSessionsWhenRequested(t *testing.T) {
+	cfg := Config{
+		Tools: map[string]Tool{
+			"codex": {Command: "codex"},
+		},
+		Projects: []Project{
+			{
+				Name:    "gmo",
+				Path:    "/tmp",
+				Session: "new-project",
+				Tools:   []ProjectTool{{Name: "codex"}},
+			},
+			{
+				Name:    "sunk",
+				Path:    "/tmp",
+				Session: "new-project",
+				Tools:   []ProjectTool{{Name: "codex"}},
+			},
+		},
+	}
+
+	if _, err := Resolve(cfg, ResolveOptions{}); err != nil {
+		t.Fatalf("Resolve() without RejectDuplicateSessions error = %v", err)
+	}
+
+	_, err := Resolve(cfg, ResolveOptions{RejectDuplicateSessions: true})
+	var validationErr *ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("Resolve() error = %T %v, want ValidationError", err, err)
+	}
+	joined := strings.Join(validationErr.Problems, "\n")
+	if !strings.Contains(joined, `project "sunk" session "new-project" is already used by project "gmo"`) {
+		t.Fatalf("validation problems missing duplicate session:\n%s", joined)
+	}
+}
